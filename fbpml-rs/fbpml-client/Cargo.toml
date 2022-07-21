@@ -1,0 +1,16 @@
+[package]
+name = "fbpml-client"
+version = "0.0.1"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://github.com/cslab-ntua/fbpml-systor22"
+authors = ["Christos Katsakioris <ckatsak@gmail.com>"]
+
+[dependencies]
+anyhow = "^1"
+clap = { version = "^3.1.0", features = ["derive"] }
+fbpml = { path = "../fbpml" }
+fbpml-rpc = { path = "../fbpml-rpc" }
+hyper = "^0.14"
+hyperlocal = { version = "^0.8", default_features = false, features = ["client"] }
+tokio = { version = "^1.17", features = ["macros", "rt-multi-thread"] }

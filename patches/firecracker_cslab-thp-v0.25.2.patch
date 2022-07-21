@@ -1,0 +1,105 @@
+From 78a579264387c17e3ae17ff2e350933ab50bdefe Mon Sep 17 00:00:00 2001
+From: Christos Katsakioris <ckatsak@gmail.com>
+Date: Tue, 9 Nov 2021 19:22:48 +0200
+Subject: [PATCH 1/2] Remove guard pages to enable THP
+
+Signed-off-by: Christos Katsakioris <ckatsak@gmail.com>
+---
+ src/vm-memory/src/mmap.rs | 32 ++------------------------------
+ 1 file changed, 2 insertions(+), 30 deletions(-)
+
+diff --git a/src/vm-memory/src/mmap.rs b/src/vm-memory/src/mmap.rs
+index 3552651f..90a93f64 100644
+--- a/src/vm-memory/src/mmap.rs
++++ b/src/vm-memory/src/mmap.rs
+@@ -43,9 +43,6 @@ pub use vm_memory_upstream::mmap::{check_file_offset, Error};
+ // The maximum number of bytes that can be read/written at a time.
+ static MAX_ACCESS_CHUNK: usize = 4096;
+ 
+-// The number of guard pages per region is a multiple of 2.
+-const GUARD_NUMBER: usize = 2;
+-
+ /// [`GuestMemoryRegion`](trait.GuestMemoryRegion.html) implementation that mmaps the guest's
+ /// memory region in the current process.
+ ///
+@@ -122,27 +119,6 @@ impl GuestRegionMmap {
+         prot: i32,
+         flags: i32,
+     ) -> Result<MmapRegion, MmapRegionError> {
+-        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
+-        // Create the guarded range size (received size + X pages),
+-        // where X is defined as a constant GUARD_NUMBER.
+-        let guarded_size = size + GUARD_NUMBER * page_size;
+-
+-        // Map the guarded range to PROT_NONE
+-        let guard_addr = unsafe {
+-            libc::mmap(
+-                null_mut(),
+-                guarded_size,
+-                libc::PROT_NONE,
+-                libc::MAP_ANONYMOUS | libc::MAP_PRIVATE | libc::MAP_NORESERVE,
+-                -1,
+-                0,
+-            )
+-        };
+-
+-        if guard_addr == libc::MAP_FAILED {
+-            return Err(MmapRegionError::Mmap(IoError::last_os_error()));
+-        }
+-
+         let (fd, offset) = if let Some(ref f_off) = file_offset {
+             check_file_offset(f_off, size)?;
+             (f_off.file().as_raw_fd(), f_off.start())
+@@ -150,16 +126,12 @@ impl GuestRegionMmap {
+             (-1, 0)
+         };
+ 
+-        let map_addr = guard_addr as usize + page_size * (GUARD_NUMBER / 2);
+-
+-        // Inside the protected range, starting with guard_addr + PAGE_SIZE,
+-        // map the requested range with received protection and flags
+         let addr = unsafe {
+             libc::mmap(
+-                map_addr as *mut libc::c_void,
++                null_mut(),
+                 size,
+                 prot,
+-                flags | libc::MAP_FIXED,
++                flags,
+                 fd,
+                 offset as libc::off_t,
+             )
+-- 
+2.17.1
+
+
+From 15672c779201e6f4304c6a73248d96ccd807affd Mon Sep 17 00:00:00 2001
+From: Christos Katsakioris <ckatsak@gmail.com>
+Date: Fri, 18 Feb 2022 17:29:08 +0200
+Subject: [PATCH 2/2] Disable disk readahead for guest memory via madvise(2)
+
+Signed-off-by: Christos Katsakioris <ckatsak@gmail.com>
+---
+ src/vm-memory/src/mmap.rs | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/vm-memory/src/mmap.rs b/src/vm-memory/src/mmap.rs
+index 90a93f64..574de9ca 100644
+--- a/src/vm-memory/src/mmap.rs
++++ b/src/vm-memory/src/mmap.rs
+@@ -141,6 +141,12 @@ impl GuestRegionMmap {
+             return Err(MmapRegionError::Mmap(IoError::last_os_error()));
+         }
+ 
++        // Disable reading blocks ahead into the page cache using madvise(2).
++        const MADVISE_RANDOM: i32 = 1;
++        if -1 == unsafe { libc::madvise(addr, size, MADVISE_RANDOM) } {
++            panic!("CKATSAK: madvise(2) failed")
++        }
++
+         Ok(unsafe { MmapRegion::build_raw(addr as *mut u8, size, prot, flags)? })
+     }
+ }
+-- 
+2.17.1
+

@@ -1,0 +1,48 @@
+# shellcheck shell=sh
+
+
+# Path to the Firecracker binary.
+FC_BIN='/nvme/ckatsak/fbpml-firecracker/build/cargo_target/x86_64-unknown-linux-musl/release/firecracker'
+
+
+# Path to the uncompressed kernel image for the guests.
+KERNEL_IMG_PATH='/nvme/ckatsak/vmlinux/vmlinux-5.14.6-ckatsak-fc'
+
+
+# Path to the root directory where microVMs' rootfs images are stored.
+ROOTFS_DIR='/nvme/ckatsak/fbpml/rootfs'
+# FIXME: Only `build-snapshot-rs` uses this for now, so better follow the standard instructions: place them in `./rootfs/`.
+
+
+# Path to the MinIO server binary.
+MINIO_SERVER_BIN='/opt/ckatsak/minio/minio'
+# Path to the MinIO client binary.
+MINIO_CLIENT_BIN='/opt/ckatsak/minio/mc'
+# Path to the tmpfs mountpoint that will be used as a data drive for the MinIO server.
+MINIO_DATA_MP='/tmp/minio-data'
+
+
+# The default number of runs for each benchmark.
+DEFAULT_RUNS=10
+
+
+# The default path to the directory where benchmarking results should be stored.
+DEFAULT_OUTDIR='/nvme/ckatsak/fbpml_outdir'
+
+
+# The default `ADDR:PORT` for all benchmarks.
+DEFAULT_VM_ADDR="${DEFAULT_VM_ADDR:=10.0.0.2:50051}"
+# FIXME:  ^^  This does not work everywhere for now, because this value is hardcoded in
+# the **/populate.sh scripts (which populate the rootfs image from within a container).
+
+
+# The default number of MicroVMs to run in parallel in the case of experiments with multiple MicroVMs.
+# It is recommended to set this to be equal to the number of physical cores per NUMA node.
+DEFAULT_MANY=32
+# FIXME:  ^^  This does not work everywhere for now, because this value is hardcoded in the Makefile.
+
+
+# This is meant to be a dev-related constant.
+# Do NOT modify, unless you are sure you have gotten the hang of the rest of the repository (again).
+VERSION='0.0.2'
+

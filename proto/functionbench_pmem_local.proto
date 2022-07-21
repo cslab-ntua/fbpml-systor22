@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package functionbench.pmem.local;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+// ZeroArguments is a service that takes an empty request as input and produces
+// a ServiceResponse.
+service ZeroArguments {
+	// Bench is the main (FaaS) benchmarking function of the experiment.
+	rpc Bench(google.protobuf.Empty) returns (ServiceResponse) {}
+}
+
+// OneArgument is a service that takes a request with a single integer as input
+// and produces a ServiceResponse.
+service OneArgument {
+	// Bench is the main (FaaS) benchmarking function of the experiment.
+	rpc Bench(OneArgumentRequest) returns (ServiceResponse) {}
+}
+
+// TwoArguments is a service that takes a request with two integers as input
+// and produces a ServiceResponse.
+service TwoArguments {
+	// Bench is the main (FaaS) benchmarking function of the experiment.
+	rpc Bench(TwoArgumentsRequest) returns (ServiceResponse) {}
+}
+
+// OneArgumentRequest is a service request type (input) that encapsulates a
+// single integer value.
+message OneArgumentRequest {
+	uint64 arg = 1;
+}
+
+// TwoArgumentsRequest is a service request type (input) that encapsulates two
+// integer values.
+message TwoArgumentsRequest {
+	uint64 arg1 = 1;
+	uint64 arg2 = 2;
+}
+
+// ServiceResponse is a service response type (output) that encapsulates two
+// duration values and is common among all services defined in this proto file.
+message ServiceResponse {
+	// response_duration represents the duration spent inside Bench().
+	google.protobuf.Duration response_duration = 1;
+	// workload_duration represents the duration spent only for the workload
+	// of Bench(), and is therefore always <= (probably strictly <) than
+	// response_duration.
+	//google.protobuf.Duration workload_duration = 2;
+}

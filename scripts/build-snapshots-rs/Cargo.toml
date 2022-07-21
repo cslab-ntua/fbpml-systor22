@@ -1,0 +1,22 @@
+[package]
+name = "build-snapshots"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://github.com/cslab-ntua/fbpml-systor22"
+authors = ["Christos Katsakioris <ckatsak@gmail.com>"]
+
+[dependencies]
+anyhow = "^1"
+clap = { version = "^3.1.17", features = ["derive", "env"] }
+dotenv = "^0.15"
+futures = "^0.3"
+hyper = "^0.14"
+hyperlocal = { version = "^0.8", default_features = false, features = ["client"] }
+indicatif = "^0.17.0-rc.2"
+tokio = { version = "^1.18.1", features = ["macros", "rt-multi-thread", "fs", "process"] }
+rand = "^0.8.5"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"

@@ -1,0 +1,120 @@
+From 2f4c8ea9e1ddf6e78c1a7c388125cd320c382762 Mon Sep 17 00:00:00 2001
+From: Christos Katsakioris <ckatsak@gmail.com>
+Date: Sun, 20 Feb 2022 16:54:59 +0200
+Subject: [PATCH 1/2] Remove guard pages to enable THP
+
+Signed-off-by: Christos Katsakioris <ckatsak@gmail.com>
+---
+ src/vm-memory/src/lib.rs | 40 +++++-----------------------------------
+ 1 file changed, 5 insertions(+), 35 deletions(-)
+
+diff --git a/src/vm-memory/src/lib.rs b/src/vm-memory/src/lib.rs
+index eb43be57..1de8fabf 100644
+--- a/src/vm-memory/src/lib.rs
++++ b/src/vm-memory/src/lib.rs
+@@ -13,6 +13,7 @@ pub use vm_memory_upstream::{
+ 
+ use std::io::Error as IoError;
+ use std::os::unix::io::AsRawFd;
++use std::ptr::null_mut;
+ 
+ use vm_memory_upstream::bitmap::AtomicBitmap;
+ use vm_memory_upstream::mmap::{check_file_offset, NewBitmap};
+@@ -21,10 +22,10 @@ pub type GuestMemoryMmap = vm_memory_upstream::GuestMemoryMmap<Option<AtomicBitm
+ pub type GuestRegionMmap = vm_memory_upstream::GuestRegionMmap<Option<AtomicBitmap>>;
+ pub type GuestMmapRegion = vm_memory_upstream::MmapRegion<Option<AtomicBitmap>>;
+ 
+-const GUARD_PAGE_COUNT: usize = 1;
+-
+ /// Build a `MmapRegion` surrounded by guard pages.
+ ///
++/// # Original Documentation
++///
+ /// Initially, we map a `PROT_NONE` guard region of size:
+ /// `size` + (GUARD_PAGE_COUNT * 2 * page_size).
+ /// The guard region is mapped with `PROT_NONE`, so that any access to this region will cause
+@@ -43,27 +44,6 @@ fn build_guarded_region(
+     flags: i32,
+     track_dirty_pages: bool,
+ ) -> Result<GuestMmapRegion, MmapRegionError> {
+-    let page_size = utils::get_page_size().expect("Cannot retrieve page size.");
+-    // Create the guarded range size (received size + X pages),
+-    // where X is defined as a constant GUARD_PAGE_COUNT.
+-    let guarded_size = size + GUARD_PAGE_COUNT * 2 * page_size;
+-
+-    // Map the guarded range to PROT_NONE
+-    let guard_addr = unsafe {
+-        libc::mmap(
+-            std::ptr::null_mut(),
+-            guarded_size,
+-            libc::PROT_NONE,
+-            libc::MAP_ANONYMOUS | libc::MAP_PRIVATE | libc::MAP_NORESERVE,
+-            -1,
+-            0,
+-        )
+-    };
+-
+-    if guard_addr == libc::MAP_FAILED {
+-        return Err(MmapRegionError::Mmap(IoError::last_os_error()));
+-    }
+-
+     let (fd, offset) = match maybe_file_offset {
+         Some(ref file_offset) => {
+             check_file_offset(file_offset, size)?;
+@@ -72,20 +52,10 @@ fn build_guarded_region(
+         None => (-1, 0),
+     };
+ 
+-    let region_start_addr = guard_addr as usize + page_size * GUARD_PAGE_COUNT;
+-
+     // Inside the protected range, starting with guard_addr + PAGE_SIZE,
+     // map the requested range with received protection and flags
+-    let region_addr = unsafe {
+-        libc::mmap(
+-            region_start_addr as *mut libc::c_void,
+-            size,
+-            prot,
+-            flags | libc::MAP_FIXED,
+-            fd,
+-            offset as libc::off_t,
+-        )
+-    };
++    let region_addr =
++        unsafe { libc::mmap(null_mut(), size, prot, flags, fd, offset as libc::off_t) };
+ 
+     if region_addr == libc::MAP_FAILED {
+         return Err(MmapRegionError::Mmap(IoError::last_os_error()));
+-- 
+2.20.1
+
+
+From b1b2e5159662d3f3c2282621d98f76e73261df9d Mon Sep 17 00:00:00 2001
+From: Christos Katsakioris <ckatsak@gmail.com>
+Date: Sun, 20 Feb 2022 16:58:46 +0200
+Subject: [PATCH 2/2] Disable disk readahead for guest memory via madvise(2)
+
+Signed-off-by: Christos Katsakioris <ckatsak@gmail.com>
+---
+ src/vm-memory/src/lib.rs | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/vm-memory/src/lib.rs b/src/vm-memory/src/lib.rs
+index 1de8fabf..eac20cfe 100644
+--- a/src/vm-memory/src/lib.rs
++++ b/src/vm-memory/src/lib.rs
+@@ -61,6 +61,12 @@ fn build_guarded_region(
+         return Err(MmapRegionError::Mmap(IoError::last_os_error()));
+     }
+ 
++    // Disable disk readahead
++    const MADVISE_RANDOM: i32 = 1;
++    if -1 == unsafe { libc::madvise(region_addr, size, MADVISE_RANDOM) } {
++        panic!("CKATSAK: madvise(2) failed")
++    }
++
+     let bitmap = match track_dirty_pages {
+         true => Some(AtomicBitmap::with_len(size)),
+         false => None,
+-- 
+2.20.1
+

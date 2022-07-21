@@ -1,0 +1,11 @@
+[workspace]
+members = [
+	"fbpml",
+	"fbpml-client",
+	"fbpml-multiclient",
+	"fbpml-rpc",
+]
+
+[profile.release]
+codegen-units = 1
+lto = "fat"

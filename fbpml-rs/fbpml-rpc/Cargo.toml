@@ -1,0 +1,15 @@
+[package]
+name = "fbpml-rpc"
+version = "0.0.1"
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://github.com/cslab-ntua/fbpml-systor22"
+authors = ["Christos Katsakioris <ckatsak@gmail.com>"]
+
+[dependencies]
+prost = "^0.9"
+prost-types = "^0.9"
+tonic = "^0.6"
+
+[build-dependencies]
+tonic-build = "0.6"
